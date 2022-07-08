@@ -113,7 +113,7 @@ class Code:
             rep = rep + self.noise.rvs(stim.shape[0])
         return rep
 
-    def decode_rep_brute(self, rep, n_candidates=1000):
+    def decode_rep_brute(self, rep, n_candidates=500):
         return rfm.brute_decode_rf(rep, self.get_rep, self.dims,
                                    n_gran=n_candidates, add_noise=False)
 
