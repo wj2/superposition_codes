@@ -301,4 +301,4 @@ def sweep_code_performance(pwrs, n_units, dims, n_samps=1000, code_type=Code,
         mse_boot[ind] = mse_boot_ind
         mse_theor[ind] = mse_theor_ind
         fi_theor[ind] = fi_theor_ind
-    return mse_emp, mse_boot, mse_theor
+    return mse_emp, mse_boot, mse_theor, fi_theor
