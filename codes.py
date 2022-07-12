@@ -117,6 +117,10 @@ class Code:
         return rfm.brute_decode_rf(rep, self.get_rep, self.dims,
                                    n_gran=n_candidates, add_noise=False)
 
+    def decode_rep_refine(self, rep, n_candidates=10):
+        return rfm.refine_decode_rf(rep, self.get_rep, self.dims,
+                                    n_gran=n_candidates, add_noise=False)
+
     def decode_rep_brute_decoupled(self, rep, dim_i=(0,), n_candidates=1000):
         return rfm.brute_decode_decouple(rep, self.get_rep, self.dims,
                                          dim_i=dim_i,
@@ -142,6 +146,8 @@ class Code:
             out = self.decode_rep_brute_decoupled(rep, **kwargs)
         elif method == 'linear':
             out = self.decode_rep_linear(rep, **kwargs)
+        elif method == 'refine':
+            out = self.decode_rep_refine(rep, **kwargs)
         else:
             raise IOError('unrecognized decoding method')
         return out 
@@ -276,20 +282,23 @@ def sweep_code_performance(pwrs, n_units, dims, n_samps=1000, code_type=Code,
     mse_emp = np.zeros((len(pwrs), len(n_units), len(dims), n_samps))
     mse_boot = np.zeros_like(mse_emp)
     mse_theor = np.zeros(mse_emp.shape[:-1])
+    fi_theor = np.zerosLike(mse_theor)
 
     def _sweep_helper(ind):
         p_i, nu_i, dim_i = ind
         code = code_type(pwrs[p_i], n_units[nu_i], dims=dims[dim_i], **kwargs)
         mse_theor_ind = code.get_predicted_mse()
+        fi_theor_ind = 1/code.get_predicted_fi()
         mse_out_ind = code.empirical_mse(n_samps=n_samps)[:, 0]
         mse_boot_ind = u.bootstrap_list(mse_out_ind, np.mean, n=n_samps)
-        return ind, mse_theor_ind, mse_out_ind, mse_boot_ind
+        return ind, mse_theor_ind, fi_theor_ind, mse_out_ind, mse_boot_ind
 
     ind_iter = u.make_array_ind_iterator(mse_theor.shape)
     par = jl.Parallel(n_jobs=n_jobs)
     out = par(jl.delayed(_sweep_helper)(ind) for ind in ind_iter)
-    for ind, mse_theor_ind, mse_out_ind, mse_boot_ind in out:
+    for ind, mse_theor_ind, fi_theor_ind, mse_out_ind, mse_boot_ind in out:
         mse_emp[ind] = mse_out_ind
         mse_boot[ind] = mse_boot_ind
         mse_theor[ind] = mse_theor_ind
+        fi_theor[ind] = fi_theor_ind
     return mse_emp, mse_boot, mse_theor
