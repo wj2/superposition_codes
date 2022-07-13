@@ -282,7 +282,7 @@ def sweep_code_performance(pwrs, n_units, dims, n_samps=1000, code_type=Code,
     mse_emp = np.zeros((len(pwrs), len(n_units), len(dims), n_samps))
     mse_boot = np.zeros_like(mse_emp)
     mse_theor = np.zeros(mse_emp.shape[:-1])
-    fi_theor = np.zerosLike(mse_theor)
+    fi_theor = np.zeros_like(mse_theor)
 
     def _sweep_helper(ind):
         p_i, nu_i, dim_i = ind
