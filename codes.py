@@ -34,11 +34,15 @@ class Code:
         
         pwr_pre = rfm.random_uniform_pwr(n_units, wid, dims, scale=1)
         rescale = np.sqrt(pwr/pwr_pre)
-        stim_distr, rf, drf, noise = pop_func(pwr, n_units, dims, w_use=wid,
-                                              sigma_n=sigma_n,
-                                              cost_func=cost_func,
-                                              titrate_func=titrate_func,
-                                              scale_use=rescale)
+        out = pop_func(pwr, n_units, dims, w_use=wid,
+                       sigma_n=sigma_n,
+                       cost_func=cost_func,
+                       titrate_func=titrate_func,
+                       scale_use=rescale,
+                       ret_params=True)
+        stim_distr, rf, drf, noise, ms, ws = out
+        
+        self.rf_cents = ms
         self.rf_scale = rescale
         self.stim_distr = stim_distr
         self.rf = rf
