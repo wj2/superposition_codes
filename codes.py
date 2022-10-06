@@ -176,13 +176,14 @@ class MultiCode(Code):
         return out
 
     def get_rep(self, stim, add_noise=True, combine=np.nansum):
-        rep = np.zeros((stim.shape[0], self.n_units_per_module))
+        rep = np.zeros((stim.shape[0], self.n_units_per_module,
+                        self.n_modules))
         for i, code in enumerate(self.code_list):
             sd_b = i*self.dims_per_module
             sd_e = (i + 1)*self.dims_per_module
-            rep = combine([rep, code.get_rep(stim[:, sd_b:sd_e],
-                                             add_noise=False)],
-                          axis=0)
+            rep[..., i] = code.get_rep(stim[:, sd_b:sd_e],
+                                       add_noise=False)
+        rep = combine(rep, axis=2)
         if add_noise:
             rep = rep + self.noise.rvs(stim.shape[0])
         return rep
@@ -197,7 +198,6 @@ class MultiCode(Code):
     
     def get_predicted_fi(self, code_ind=0):
         return self.code_list[code_ind].get_predicted_fi()
-
 
 def optimize_sigma_w(wid, pwr, n_units, n_modules, dims=1, sigma_n=1,
                      delt=1/10000, max_iter=10, **kwargs):
@@ -288,7 +288,7 @@ class ModularCode(MultiCode):
 
 @u.arg_list_decorator
 def sweep_code_performance(pwrs, n_units, dims, n_samps=1000, code_type=Code,
-                           n_jobs=-1, **kwargs):
+                           n_jobs=-1, n_cand=100, **kwargs):
     mse_emp = np.zeros((len(pwrs), len(n_units), len(dims), n_samps))
     mse_boot = np.zeros_like(mse_emp)
     mse_theor = np.zeros(mse_emp.shape[:-1])
@@ -299,7 +299,8 @@ def sweep_code_performance(pwrs, n_units, dims, n_samps=1000, code_type=Code,
         code = code_type(pwrs[p_i], n_units[nu_i], dims=dims[dim_i], **kwargs)
         mse_theor_ind = code.get_predicted_mse()
         fi_theor_ind = 1/code.get_predicted_fi()
-        mse_out_ind = code.empirical_mse(n_samps=n_samps)[:, 0]
+        mse_out_ind = code.empirical_mse(n_samps=n_samps,
+                                         n_candidates=n_cand)[:, 0]
         mse_boot_ind = u.bootstrap_list(mse_out_ind, np.mean, n=n_samps)
         return ind, mse_theor_ind, fi_theor_ind, mse_out_ind, mse_boot_ind
 

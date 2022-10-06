@@ -17,11 +17,12 @@ def create_parser():
                         type=float)
     parser.add_argument('--pwr_sweep_nu', default=1000, type=int)
     parser.add_argument('--nu_sweep_pwr', default=75)
-    parser.add_argument('--probe_dims', default=(1, 2), nargs='+',
+    parser.add_argument('--probe_dims', default=(1,), nargs='+',
                         type=int)
     parser.add_argument('--n_samps', default=10, type=int)
     parser.add_argument('--code_type', default='code', type=str)
     parser.add_argument('--n_modules', default=1, type=int)
+    parser.add_argument('--n_decoder_candidates', default=1000, type=int)
     return parser
 
 if __name__ == '__main__':
@@ -44,13 +45,15 @@ if __name__ == '__main__':
         code_type = ft.partial(spc.SuperposCode, args.n_modules)
     else:
         raise IOError('unrecognized code type, {}'.format(args.code_type))
-    
+
     out_pwr = spc.sweep_code_performance(pwr_range, args.pwr_sweep_nu, dims,
                                          n_samps=n_samps,
-                                         code_type=code_type)
+                                         code_type=code_type,
+                                         n_cand=args.n_decoder_candidates)
     out_nu = spc.sweep_code_performance(args.nu_sweep_pwr, nu_range, dims,
                                         n_samps=n_samps,
-                                        code_type=code_type)
+                                        code_type=code_type,
+                                        n_cand=args.n_decoder_candidates)
     out = {'params':(pwr_range, nu_range, dims), 'pwr_sweep_ind':pwr_fix_ind,
            'nus_sweep_ind':nus_fix_ind,
            'pwr_sweep':out_pwr, 'nu_sweep':out_nu}
