@@ -176,14 +176,13 @@ class MultiCode(Code):
         return out
 
     def get_rep(self, stim, add_noise=True, combine=np.nansum):
-        rep = np.zeros((stim.shape[0], self.n_units_per_module,
-                        self.n_modules))
+        rep = np.zeros((stim.shape[0], self.n_units_per_module))
         for i, code in enumerate(self.code_list):
             sd_b = i*self.dims_per_module
             sd_e = (i + 1)*self.dims_per_module
-            rep[..., i] = code.get_rep(stim[:, sd_b:sd_e],
-                                       add_noise=False)
-        rep = combine(rep, axis=2)
+            rep = combine([rep, code.get_rep(stim[:, sd_b:sd_e],
+                                             add_noise=False)],
+                          axis=0)
         if add_noise:
             rep = rep + self.noise.rvs(stim.shape[0])
         return rep
