@@ -209,7 +209,7 @@ def optimize_sigma_w(wid, pwr, n_units, n_modules, dims=1, sigma_n=1,
                                                             dims)
     sigma = np.sqrt(sigma_n**2 + add_sigma)
     new_wid = Code(pwr, n_units, dims=dims,
-                   sigma_n=sigma**2, **kwargs).wid
+                   sigma_n=sigma, **kwargs).wid
     iter_ = 0
     while np.abs(wid - new_wid) > delt:
         # print(np.abs(wid - new_wid))
@@ -222,7 +222,7 @@ def optimize_sigma_w(wid, pwr, n_units, n_modules, dims=1, sigma_n=1,
                                                                 wid, dims)
         sigma = np.sqrt(sigma_n**2 + add_sigma)
         new_wid = Code(pwr, n_units, dims=dims,
-                       sigma_n=sigma**2, **kwargs).wid
+                       sigma_n=sigma, **kwargs).wid
     return sigma, wid
     
 class SuperposCode(MultiCode):
@@ -237,7 +237,7 @@ class SuperposCode(MultiCode):
                                                 sigma_n, **kwargs)
         for i in range(n_modules):
             code_i = Code(mod_pwr, n_units, dims=dims, wid=wid_i,
-                          sigma_n=new_sigma**2, **kwargs)
+                          sigma_n=new_sigma, **kwargs)
             code_list.append(code_i)
         self.code_list = code_list
         self.dims_per_module = dims
