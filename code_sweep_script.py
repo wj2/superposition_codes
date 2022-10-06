@@ -30,6 +30,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     pwr_range = np.logspace(*args.pwr_range[:2], int(args.pwr_range[2]))
+    pwr_range = pwr_range*args.n_modules
+    nu_sweep_pwr = args.nu_sweep_pwr*args.n_modules
+
     nu_range = np.logspace(*args.nu_range[:2], int(args.nu_range[2]),
                            dtype=int)
     
@@ -50,7 +53,7 @@ if __name__ == '__main__':
                                          n_samps=n_samps,
                                          code_type=code_type,
                                          n_cand=args.n_decoder_candidates)
-    out_nu = spc.sweep_code_performance(args.nu_sweep_pwr, nu_range, dims,
+    out_nu = spc.sweep_code_performance(nu_sweep_pwr, nu_range, dims,
                                         n_samps=n_samps,
                                         code_type=code_type,
                                         n_cand=args.n_decoder_candidates)
