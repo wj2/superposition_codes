@@ -54,8 +54,10 @@ if __name__ == '__main__':
                                         n_samps=n_samps,
                                         code_type=code_type,
                                         n_cand=args.n_decoder_candidates)
-    out = {'params':(pwr_range, nu_range, dims), 'pwr_sweep_ind':pwr_fix_ind,
-           'nus_sweep_ind':nus_fix_ind,
+    out = {'params':(pwr_range, nu_range, dims),
+           'pwr_sweep_nu':args.pwr_sweep_nu,
+           'nu_sweep_pwr':args.nu_sweep_pwr,
+           'args':vars(args),
            'pwr_sweep':out_pwr, 'nu_sweep':out_nu}
     pickle.dump(out, open(fname, 'wb'))
     
