@@ -193,6 +193,13 @@ class MultiCode(Code):
         return super().decode_rep(rep, method=method, dim_i=dim_i,
                                   **kwargs)
 
+    def get_predicted_mse(self, code_ind=0):
+        return self.code_list[code_ind].get_predicted_mse()
+    
+    def get_predicted_fi(self, code_ind=0):
+        return self.code_list[code_ind].get_predicted_fi()
+
+
 def optimize_sigma_w(wid, pwr, n_units, n_modules, dims=1, sigma_n=1,
                      delt=1/10000, max_iter=10, **kwargs):
     if wid is None:

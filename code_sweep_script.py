@@ -2,6 +2,8 @@
 import argparse
 import pickle
 import numpy as np
+import functools as ft
+
 import superposition_codes.codes as spc
 
 
@@ -23,23 +25,23 @@ def create_parser():
     return parser
 
 if __name__ == '__main__':
+    parser = create_parser()
+    args = parser.parse_args()
+    
     pwr_range = np.logspace(*args.pwr_range[:2], int(args.pwr_range[2]))
     nu_range = np.logspace(*args.nu_range[:2], int(args.nu_range[2]),
                            dtype=int)
     
-    dims = args.prob_dims
+    dims = args.probe_dims
     n_samps = args.n_samps
-
-    parser = create_parser()
-    args = parser.parse_args()
 
     fname = args.output_file
     if args.code_type == 'code':
         code_type = spc.Code
     elif args.code_type == 'modular':
-        code_type = ft.partial(spc.ModularCode, n_modules)
+        code_type = ft.partial(spc.ModularCode, args.n_modules)
     elif args.code_type == 'superposition':
-        code_type = ft.partial(spc.SuperposCode, n_modules)
+        code_type = ft.partial(spc.SuperposCode, args.n_modules)
     else:
         raise IOError('unrecognized code type, {}'.format(args.code_type))
     
