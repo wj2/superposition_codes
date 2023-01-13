@@ -3,8 +3,32 @@ import os
 import re
 import pickle
 import numpy as np
+import scipy.io as sio
 
 import general.utility as u
+
+orientation_folder = '../data/superpos_data/'
+session_default = 'ori32_(?P<ident>M[0-9]+_MP[0-9]+)_(?P<other>[0-9]+)\.mat'
+def load_orientation_data(folder=orientation_folder,
+                          manifest_name='dbori32.mat',
+                          session_pattern=session_default,
+                          remove_nan=True):
+    manifest = sio.loadmat(os.path.join(folder, manifest_name))
+    fls = os.listdir(folder)
+    data = {}
+    for fl in fls:
+        m = re.match(session_pattern, fl)
+        if m is not None:
+            ident = m.group('ident')
+            other = m.group('other')
+            data_m = sio.loadmat(os.path.join(folder, fl))
+            resp = data_m['stim'][0, 0]['resp']
+            if remove_nan:
+                mask = np.logical_not(np.all(np.isnan(resp), axis=0))
+                resp = resp[:, mask]
+            stim = np.squeeze(data_m['stim'][0, 0]['params'])
+            data[(ident, other)] = (stim, resp)
+    return manifest, data
 
 def load_sweeps(folder, jobid, template='code_s_sweep_[0-9]+_{jobid}\.pkl',
                 params_key='params'):

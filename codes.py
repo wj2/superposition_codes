@@ -3,6 +3,7 @@ import numpy as np
 import scipy.stats as sts
 import scipy.special as ss
 import sklearn.linear_model as sklm
+import sklearn.svm as skm
 import joblib as jl
 
 import general.rf_models as rfm
@@ -11,7 +12,8 @@ import general.utility as u
 class Code:
 
     def __init__(self, pwr, n_units, dims=1, wid=None, lam=2,
-                 spk_cost='l2', pop_func='random', sigma_n=1, modules=1):
+                 spk_cost='l2', pop_func='random', sigma_n=1, modules=1,
+                 make_code=True, use_ramp=None):
         if spk_cost == 'l1':
             cost_func = lambda x: np.mean(np.sum(np.abs(x), axis=1))
             titrate_func = lambda x, y: x/y
@@ -34,21 +36,24 @@ class Code:
         
         pwr_pre = rfm.random_uniform_pwr(n_units, wid, dims, scale=1)
         rescale = np.sqrt(pwr/pwr_pre)
-        out = pop_func(pwr, n_units, dims, w_use=wid,
-                       sigma_n=sigma_n,
-                       cost_func=cost_func,
-                       titrate_func=titrate_func,
-                       scale_use=rescale,
-                       ret_params=True)
-        stim_distr, rf, drf, noise, ms, ws = out
-        
-        self.rf_cents = ms
         self.rf_scale = rescale
-        self.stim_distr = stim_distr
-        self.rf = rf
-        self.drf = drf
-        self.noise = noise
+        if make_code:
+            out = pop_func(pwr, n_units, dims, w_use=wid,
+                           sigma_n=sigma_n,
+                           cost_func=cost_func,
+                           titrate_func=titrate_func,
+                           scale_use=rescale,
+                           ret_params=True,
+                           use_ramp=use_ramp)
+            stim_distr, rf, drf, noise, ms, ws = out
+        
+            self.rf_cents = ms
+            self.stim_distr = stim_distr
+            self.rf = rf
+            self.drf = drf
+            self.noise = noise
 
+        self.use_ramp = use_ramp
         self.n_units = n_units
         self.pwr = pwr
         self.dims = dims
@@ -58,6 +63,40 @@ class Code:
         self.linear_decoder = None
         self.add_dc = 0
 
+    # fix this
+    def get_empirical_thr_error_pred(self, n_samps=1000, lam=2):
+        mag = 1/6
+        stim1 = self.stim_distr.rvs(n_samps)
+        stim2 = self.stim_distr.rvs(n_samps)
+        d12 = np.sqrt(np.sum((stim1 - stim2)**2, axis=1))
+        mask = d12 > self.wid*lam
+        stim1 = stim1[mask]
+        stim2 = stim2[mask]
+        s1 = self.rf(stim1)
+        s2 = self.rf(stim2)
+        dists = np.sum((s1 - s2)**2, axis=1)
+        use_dist = np.mean(dists) - lam*np.std(dists)
+        use_dist = np.sqrt(max(use_dist, 0))
+        
+        prob = np.mean(sts.norm(0, 1).cdf(-np.sqrt(dists)/(2*self.sigma_n)))
+        if self.use_ramp is not None:
+            gd = self.dims - len(self.use_ramp)
+        else:
+            gd = self.dims
+        
+        factor = min(1/(2*self.wid)**gd, self.n_units)
+        p = factor*prob
+        return p, mag
+        
+    def get_empirical_fi_prediction(self, n_samps=1000):
+        stim = self.stim_distr.rvs(n_samps)
+        fi = (self.drf(stim)**2)/(self.sigma_n**2)
+        fi_mse = 1/np.sum(np.mean(fi, axis=0), axis=0)
+        thr_prob, mag = self.get_empirical_thr_error_pred(n_samps)
+        thr_mse = thr_prob*mag
+        out = fi_mse + thr_mse
+        return out
+        
     def get_predicted_fi(self):
         return rfm.random_uniform_fi_pwr(self.n_units, self.pwr, self.wid,
                                          self.dims, sigma_n=self.sigma_n)
@@ -114,7 +153,7 @@ class Code:
     def get_rep(self, stim, add_noise=True):
         rep = self.rf(stim)
         if add_noise:
-            rep = rep + self.noise.rvs(stim.shape[0])
+            rep = rep + self.noise.rvs(rep.shape)
         return rep
 
     def decode_rep_brute(self, rep, n_candidates=500):
@@ -132,16 +171,23 @@ class Code:
                                          add_noise=False,
                                          add_dc=self.add_dc)
 
-    def train_linear_decoder(self, model=sklm.Ridge, n_training=1000, **kwargs):
-        m = model(**kwargs)
+    def train_linear_decoder(self, model=sklm.Ridge, n_training=1000,
+                             dim_i=None, **kwargs):
         stim, reps = self.sample_reps(n_training)
+        if dim_i is not None:
+            stim = stim[:, dim_i]
+        stim = np.squeeze(stim)
+        m = model(**kwargs)
         m.fit(reps, stim)
         return m
     
-    def decode_rep_linear(self, rep, n_training=1000, **kwargs):
+    def decode_rep_linear(self, rep, n_training=10000, **kwargs):
         if self.linear_decoder is None:
             self.linear_decoder = self.train_linear_decoder(**kwargs)
-        return self.linear_decoder.predict(rep)
+        pred = self.linear_decoder.predict(rep)
+        if len(pred.shape) == 1:
+            pred = np.expand_dims(pred, 1)
+        return pred
     
     def decode_rep(self, rep, method='brute', **kwargs):
         if method == 'brute':
@@ -150,6 +196,9 @@ class Code:
             out = self.decode_rep_brute_decoupled(rep, **kwargs)
         elif method == 'linear':
             out = self.decode_rep_linear(rep, **kwargs)
+        elif method == 'kernel':
+            out = self.decode_rep_linear(rep, model=skm.SVR,
+                                         **kwargs)
         elif method == 'refine':
             out = self.decode_rep_refine(rep, **kwargs)
         else:
@@ -185,7 +234,7 @@ class MultiCode(Code):
                                        add_noise=False)
         rep = combine(rep, axis=2)
         if add_noise:
-            rep = rep + self.noise.rvs(stim.shape[0])
+            rep = rep + self.noise.rvs(rep.shape)
         return rep
 
     def decode_rep(self, rep, method='brute_decoupled', **kwargs):
@@ -199,8 +248,16 @@ class MultiCode(Code):
     def get_predicted_fi(self, code_ind=0):
         return self.code_list[code_ind].get_predicted_fi()
 
+    @property
+    def capacity(self):
+        stim, reps = self.sample_reps(add_noise=False)
+        sig_var = np.mean(np.var(reps, axis=0))
+        ratio = sig_var/(self.sigma_n**2)
+        capacity = self.n_units*.5*np.log(1 + ratio)
+        return capacity
+
 def optimize_sigma_w(wid, pwr, n_units, n_modules, dims=1, sigma_n=1,
-                     delt=1/10000, max_iter=10, **kwargs):
+                     delt=1e-5, max_iter=10, **kwargs):
     if wid is None:
         wid = Code(pwr, n_units, dims=dims, wid=wid,
                    sigma_n=sigma_n**2, **kwargs).wid
@@ -223,7 +280,7 @@ def optimize_sigma_w(wid, pwr, n_units, n_modules, dims=1, sigma_n=1,
         sigma = np.sqrt(sigma_n**2 + add_sigma)
         new_wid = Code(pwr, n_units, dims=dims,
                        sigma_n=sigma, **kwargs).wid
-    return sigma, wid
+    return sigma, new_wid
     
 class SuperposCode(MultiCode):
 
@@ -233,8 +290,8 @@ class SuperposCode(MultiCode):
         wid_i = kwargs.get('wid')
         if wid_i is None:
             new_sigma, wid_i = optimize_sigma_w(wid_i, mod_pwr, n_units,
-                                                n_modules, dims,
-                                                sigma_n, **kwargs)
+                                                n_modules=n_modules, dims=dims,
+                                                sigma_n=sigma_n, **kwargs)
         for i in range(n_modules):
             code_i = Code(mod_pwr, n_units, dims=dims, wid=wid_i,
                           sigma_n=new_sigma, **kwargs)
@@ -245,14 +302,17 @@ class SuperposCode(MultiCode):
         self.n_modules = n_modules
         self.n_units = n_units
         self.n_units_per_module = n_units
-        self.noise = sts.multivariate_normal(np.zeros(n_units), sigma_n)
+        self.noise = sts.norm(0, sigma_n)
+        self.sigma_n = sigma_n
         self.linear_decoder = None
+        self.wid = wid_i
         mean_interference = rfm.random_uniform_unit_mean(
             wid_i, dims, self.code_list[0].rf_scale)
         self.add_dc = (n_modules - 1)*mean_interference
-
+        
     def get_rep(self, *args, combine=np.nansum, **kwargs):
         return super().get_rep(*args, combine=combine, **kwargs)
+
 
 def mod_concat(arr, axis=2, conc_ax=1):
     arr_m = np.moveaxis(arr, axis, 0)
@@ -275,10 +335,10 @@ class ModularCode(MultiCode):
         self.dims_per_module = dims
         self.dims = dims*n_modules
         self.n_units_per_module = mod_units
+        self.sigma_n = sigma_n
         self.n_units = n_units
         self.n_modules = n_modules
-        self.noise = sts.multivariate_normal(np.zeros(mod_units*n_modules),
-                                             sigma_n)
+        self.noise = sts.norm(0, sigma_n)
         self.linear_decoder = None
         self.add_dc = 0
 
