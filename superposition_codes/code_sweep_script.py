@@ -16,7 +16,7 @@ def create_parser():
     parser.add_argument('--nu_range', default=(2, 3.2, 100), nargs=3,
                         type=float)
     parser.add_argument('--pwr_sweep_nu', default=1000, type=int)
-    parser.add_argument('--nu_sweep_pwr', default=75)
+    parser.add_argument('--nu_sweep_pwr', default=75, type=float)
     parser.add_argument('--probe_dims', default=(1,), nargs='+',
                         type=int)
     parser.add_argument('--n_samps', default=10, type=int)
